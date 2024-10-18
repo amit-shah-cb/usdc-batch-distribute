@@ -178,7 +178,7 @@ export function Account() {
                   />
                 </div>
                 <p className='mt-3 text-sm leading-6 text-gray-600'>
-                  colon : seperated list of address,value e.g. {address},100:...{' '}
+                  newline seperated list of address,value e.g. {address},100
                 </p>
               </div>
             </div>
