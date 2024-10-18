@@ -1,7 +1,7 @@
 'use client'
 
 import { useAccount, useBalance, useDisconnect } from 'wagmi'
-import { FormEvent } from 'react'
+import { FormEvent, useState } from 'react'
 import { simulateContract, writeContract } from '@wagmi/core'
 import { config } from './libs/config'
 import { abi } from './abi'
@@ -46,6 +46,17 @@ import { abi as multicallAbi } from './multicall.abi'
 //   )
 // }
 
+const Output = ({ output }: { output: string }) => {
+  if (output)
+    return (
+      <div
+        className='p-4 mb-4 text-sm text-blue-800 rounded-lg bg-blue-50 dark:bg-gray-800 dark:text-blue-400'
+        role='alert'
+      >
+        <span className='font-medium'>{output}</span>
+      </div>
+    )
+}
 export function Account() {
   const { address } = useAccount()
   const result = useBalance({
@@ -53,6 +64,7 @@ export function Account() {
     token: USDC_ADDRESS,
   })
   const { disconnect } = useDisconnect()
+  const [output, setOutput] = useState<string>('')
   //   const [helper, setHelper] = useState<ethers.Wallet | null>(null)
 
   const approveMulticall = (value: bigint = ethers.MaxUint256) => {
@@ -64,7 +76,7 @@ export function Account() {
       account: address!,
     }).then((tx) => {
       console.log('tx:', tx)
-      //   setIsApproved(`MaxUINT Approved tx: https://basescan.org/tx/${tx}`)
+      setOutput((value !== BigInt(0) ? `Approved:` : `Revoked:`) + ` https://basescan.org/tx/${tx}`)
     })
   }
 
@@ -96,6 +108,7 @@ export function Account() {
     })
       .then((result) => {
         console.log('simulation result:', result)
+        setOutput(`simulation success, proceeding to submit tx`)
         writeContract(config, {
           abi: multicallAbi,
           address: MULTICALL as `0x${string}`,
@@ -104,10 +117,12 @@ export function Account() {
           account: address!,
         }).then((tx) => {
           console.log('tx:', tx)
+          setOutput(`distribute: https://basescan.org/tx/${tx}`)
         })
       })
       .catch((err) => {
         console.error(err)
+        setOutput(`error running simulation`)
       })
   }
 
@@ -169,7 +184,7 @@ export function Account() {
             </div>
           </div>
         </div>
-
+        <Output output={output} />
         <div className='mt-6 flex items-center justify-end gap-x-6'>
           <button
             type='button'
