@@ -4,9 +4,11 @@ import { Connector, useConnect } from 'wagmi'
 export function WalletOptions() {
   const { connectors, connect } = useConnect()
 
-  return connectors.map((connector) => (
-    <WalletOption key={connector.uid} connector={connector} onClick={() => connect({ connector })} />
-  ))
+  return connectors
+    .filter((connector) => connector.name === 'Coinbase Wallet')
+    .map((connector) => (
+      <WalletOption key={connector.uid} connector={connector} onClick={() => connect({ connector })} />
+    ))
 }
 
 function WalletOption({ connector, onClick }: { connector: Connector; onClick: () => void }) {
