@@ -1,7 +1,9 @@
 'use client'
 
-import { useAccount, WagmiProvider } from 'wagmi'
+import { useAccount, useSwitchChain, WagmiProvider } from 'wagmi'
+
 import { config } from './libs/config'
+import { base } from 'wagmi/chains'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 import { WalletOptions } from './wallet-options'
@@ -10,7 +12,22 @@ import { Account } from './account'
 const queryClient = new QueryClient()
 
 function ConnectWallet() {
-  const { isConnected } = useAccount()
+  const { isConnected, chain } = useAccount()
+
+  const { switchChain } = useSwitchChain()
+  console.log('chainId:', chain)
+  if (isConnected && chain?.id !== base.id)
+    return (
+      <button
+        className="className='text-white bg-blue-800 hover:bg-blue-900 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:hover:bg-gray-700 dark:focus:ring-gray-700 dark:border-gray-700"
+        onClick={() => {
+          switchChain({ chainId: base.id })
+        }}
+      >
+        Switch to {base.name}
+      </button>
+    )
+
   if (isConnected) return <Account />
   return <WalletOptions />
 }
