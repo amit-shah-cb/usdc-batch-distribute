@@ -116,7 +116,7 @@ export function Account() {
   //       const key = ethers.keccak256(sig)
 
   //       const w = new ethers.Wallet(key).connect(
-  //         new ethers.JsonRpcProvider(`https://base.gateway.tenderly.co/1Oz4gU8uN7RckK40jhysCE`),
+  //         new ethers.JsonRpcProvider(),
   //       )
   //       console.log(w.address)
   //       setHelper(w)
