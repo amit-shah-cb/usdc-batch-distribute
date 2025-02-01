@@ -54,7 +54,7 @@ export function Account() {
       from: address as Address,
       to: helper.address as Address,
       value: value,
-      validBefore: BigInt(validAfter + (60 * 5)),
+      validBefore: BigInt(validAfter + 20),//20 seconds
       validAfter: BigInt(0),
       nonce: nonce as `0x${string}`,
     }    
@@ -186,7 +186,7 @@ export function Account() {
   }
 
   async function initiate() {
-    signMessage(config, { message: 'Loading ephemereal helper wallet for this domain with random salt 0x0e42b21176935c84185d60e61413264a1cf24f2dc487aded7cb6782b3d87153a', account: address }).then((sig: `0x${string}`) => {
+    signMessage(config, { message: `!!!WARNING: CONFIRM THE DOMAIN IS ${process.env.NEXT_PUBLIC_BASE_URL}!!! Loading ephemereal helper wallet with random salt:0x0e42b21176935c84185d60e61413264a1cf24f2dc487aded7cb6782b3d87153a`, account: address }).then((sig: `0x${string}`) => {
       const key = ethers.keccak256(ethers.keccak256(sig))
       const w = new ethers.Wallet(key).connect(new ethers.JsonRpcProvider())
       console.log(w.address)
@@ -227,6 +227,8 @@ export function Account() {
             <p className='mt-1 text-sm leading-6 text-gray-600'>{address ? address : `Loading Wallet ...`}</p>
             <h3 className='text-base font-semibold leading-7 text-gray-900'>{result.data?.symbol} Balance</h3>
             <p className='mt-1 text-sm leading-6 text-gray-600'>{result.data ? formatUnits(result.data?.value as bigint, result.data?.decimals as number) : `Loading Balance ...`}</p>
+            <h3 className='text-base font-semibold leading-7 text-gray-900'> Helper Wallet</h3>
+            <p className='mt-1 text-sm leading-6 text-gray-600'>{helper ? helper.address : `Loading Helper Wallet ...`}</p>
             <div className='mt-10 grid grid-cols-1 gap-x-6 gap-y-8 sm:grid-cols-6'>
               <div className='col-span-full'>
                 <label htmlFor='about' className='block text-sm font-medium leading-6 text-gray-900'>
@@ -242,7 +244,7 @@ export function Account() {
                   />
                 </div>
                 <p className='mt-3 text-sm leading-6 text-gray-600'>
-                  newline seperated list of address,$value e.g.&nbsp;&nbsp;{address},{formatUnits(BigInt(100000), 6)}
+                  newline seperated list of address,$value e.g.{address},{formatUnits(BigInt(100000), 6)}
                 </p>
               </div>
             </div>
