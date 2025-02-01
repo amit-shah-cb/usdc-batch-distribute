@@ -7,15 +7,35 @@ import { config } from './libs/config'
 import { abi } from './abi'
 import { MULTICALL, USDC_ADDRESS } from './constants'
 import * as ethers from 'ethers'
-import { Address, formatUnits, parseEther, parseUnits } from 'viem'
+import { Address, formatUnits, parseUnits } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { abi as multicallAbi } from './multicall.abi'
-import { sendTransaction, signMessage, signTypedData } from 'wagmi/actions'
+import { signMessage, signTypedData } from 'wagmi/actions'
 import { Output } from './output'
 import { base } from 'viem/chains'
 
+const transferWithAuthorizationTypedData = {
+  "types": {
+    "TransferWithAuthorization": [
+      { "name": "from", "type": "address" },
+      { "name": "to", "type": "address" },
+      { "name": "value", "type": "uint256" },
+      { "name": "validAfter", "type": "uint256" },
+      { "name": "validBefore", "type": "uint256" },
+      { "name": "nonce", "type": "bytes32" }
+    ]
+  },
+  "domain": {
+    "name": "USD Coin",
+    "version": "2",
+    "chainId": base.id,
+    "verifyingContract": USDC_ADDRESS as `0x${string}`
+  },
+  "primaryType": "TransferWithAuthorization"
+};
+
 export function Account() {
-  const { address, connector } = useAccount()
+  const { address } = useAccount()
   const result = useBalance({
     address: address,
     token: USDC_ADDRESS,
@@ -23,57 +43,7 @@ export function Account() {
   const { disconnect } = useDisconnect()
   const [output, setOutput] = useState<string>('')
   const [helper, setHelper] = useState<ethers.Wallet | null>(null)
-  const [funding, setFunding] = useState<string>("0.0001")
-  const transferWithAuthorizationTypedData = {
-    "types": {
-      "TransferWithAuthorization": [
-        { "name": "from", "type": "address" },
-        { "name": "to", "type": "address" },
-        { "name": "value", "type": "uint256" },
-        { "name": "validAfter", "type": "uint256" },
-        { "name": "validBefore", "type": "uint256" },
-        { "name": "nonce", "type": "bytes32" }
-      ]
-    },
-    "domain": {
-      "name": "USD Coin",
-      "version": "2",
-      "chainId": base.id,
-      "verifyingContract": USDC_ADDRESS
-    },
-    "primaryType": "TransferWithAuthorization"
-  };
-  const approve = useCallback(() => {
-    if (!helper) {
-      return
-    }
-    writeContract(config, {
-      abi,
-      address: USDC_ADDRESS,
-      functionName: 'approve',
-      args: [helper.address as Address, ethers.MaxUint256],
-      account: address!,
-    }).then((tx) => {
-      console.log('tx:', tx)
-      setOutput(`Approved helper ${helper.address}: https://basescan.org/tx/${tx}`)
-    })
-  }, [helper])
-
-  const revoke = useCallback(() => {
-    if (!helper) {
-      return
-    }
-    writeContract(config, {
-      abi,
-      address: USDC_ADDRESS,
-      functionName: 'approve',
-      args: [helper.address as Address, BigInt(0)],
-      account: address!,
-    }).then((tx) => {
-      console.log('tx:', tx)
-      setOutput(`Revoked helper ${helper.address}: https://basescan.org/tx/${tx}`)
-    })
-  }, [helper])
+  
 
   const ownerTransferWithAuthorizationTypedData = useCallback(async (value: bigint, nonce: `0x${string}`) => {
     if (!address || !helper) {
@@ -87,19 +57,23 @@ export function Account() {
       validBefore: BigInt(validAfter + (60 * 5)),
       validAfter: BigInt(0),
       nonce: nonce as `0x${string}`,
-    }
-    console.log(message)
+    }    
     const sig = await signTypedData(config, {
-      domain: transferWithAuthorizationTypedData.domain as any,
-      types: transferWithAuthorizationTypedData.types as any,
-      message: message as any,
-      primaryType: transferWithAuthorizationTypedData.primaryType as any
+
+      domain: transferWithAuthorizationTypedData.domain,
+      types: transferWithAuthorizationTypedData.types,
+      message: message ,
+      primaryType: transferWithAuthorizationTypedData.primaryType as `TransferWithAuthorization`
     })
-    const v = await ethers.verifyTypedData(transferWithAuthorizationTypedData.domain,
+    const recoveredAddress = await ethers.verifyTypedData(transferWithAuthorizationTypedData.domain,
       transferWithAuthorizationTypedData.types,
       message,
       sig as `0x${string}`
     )
+    if (recoveredAddress !== address) {
+      throw new Error("signature verification failed")
+    }
+
     return encodeFunctionData({
       abi,
       args: [message.from, message.to, message.value, message.validAfter, message.validBefore, message.nonce, sig as `0x${string}`],
@@ -107,7 +81,10 @@ export function Account() {
     })
   }, [address, helper])
 
-  const generateTransferWithAuthorizationTypedDataAndSignature = async (helper: ethers.Wallet, to: Address, value: bigint, nonce: `0x${string}`) => {
+  const generateTransferWithAuthorizationTypedDataAndSignature = useCallback(async (helper: ethers.Wallet, to: Address, value: bigint, nonce: `0x${string}`) => {
+    if (!helper) {
+      return
+    }
     const validAfter = Math.floor(Date.now() / 1000)
     const message = {
       from: helper.address as Address,
@@ -122,29 +99,20 @@ export function Account() {
       transferWithAuthorizationTypedData.types,
       message
     )
-    const v = await ethers.verifyTypedData(transferWithAuthorizationTypedData.domain,
+    const recoveredAddress = await ethers.verifyTypedData(transferWithAuthorizationTypedData.domain,
       transferWithAuthorizationTypedData.types,
       message,
       sig as `0x${string}`
     )
+    if (recoveredAddress !== helper.address) {
+      throw new Error("helper signature verification failed")
+    }
     return encodeFunctionData({
       abi,
       args: [message.from, message.to, message.value, message.validAfter, message.validBefore, message.nonce, sig as `0x${string}`],
       functionName: 'transferWithAuthorization',
     })
-  }
-
-  const fund = useCallback(async () => {
-    if (!helper) {
-      return
-    }
-    const v = parseEther(funding, "wei")
-    sendTransaction(config, {
-      to: helper.address as Address,
-      value: v,
-      account: address as `0x${string}`,
-    })
-  }, [helper, funding])
+  },[])
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     if (!helper) {
@@ -155,7 +123,7 @@ export function Account() {
 
     const formData = new FormData(event.currentTarget)
     const accounts = formData.get('addresses')?.valueOf().toString().split('\n') ?? []
-    let args: any[] = []
+    let args: {target: Address, allowFailure: boolean, callData: `0x${string}`}[] = []
     let totalVal = BigInt(0)
     for (const acctVal of accounts) {
       const [to, uval] = acctVal.split(',')
@@ -166,7 +134,7 @@ export function Account() {
       args.push({
         target: USDC_ADDRESS as Address,
         allowFailure: false,
-        callData: data,
+        callData: data as `0x${string}`,
       })
       totalVal += BigInt(val)
     }
@@ -177,7 +145,7 @@ export function Account() {
       {
         target: USDC_ADDRESS as Address,
         allowFailure: false,
-        callData: ownerTransferCallData,
+        callData: ownerTransferCallData as `0x${string}`,
       }
       ,
       ...args]
@@ -218,7 +186,7 @@ export function Account() {
   }
 
   async function initiate() {
-    signMessage(config, { message: 'Loading ephemereal helper wallet for this domain with random salt 0x0e42b21176935c84185d60e61413264a1cf24f2dc487aded7cb6782b3d87153a', account: address }).then((sig: any) => {
+    signMessage(config, { message: 'Loading ephemereal helper wallet for this domain with random salt 0x0e42b21176935c84185d60e61413264a1cf24f2dc487aded7cb6782b3d87153a', account: address }).then((sig: `0x${string}`) => {
       const key = ethers.keccak256(ethers.keccak256(sig))
       const w = new ethers.Wallet(key).connect(new ethers.JsonRpcProvider())
       console.log(w.address)
