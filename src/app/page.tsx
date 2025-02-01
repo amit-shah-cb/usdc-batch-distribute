@@ -15,7 +15,6 @@ function ConnectWallet() {
   const { isConnected, chain } = useAccount()
 
   const { switchChain } = useSwitchChain()
-  console.log('chainId:', chain)
   if (isConnected && chain?.id !== base.id)
     return (
       <button
